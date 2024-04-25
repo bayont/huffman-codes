@@ -1,3 +1,4 @@
+import pickle,os
 class Node:
   def __init__(self, char, freq):
     self.char = char
@@ -83,42 +84,70 @@ def encode(data, codes):
 def get_bytes(data):
   return bytes([int(data[i:i+8], 2) for i in range(0, len(data), 8)])
 
-def decode(encoded, tree):
+def bytes_to_binary_string(bytes):
+  bin_string = ""
+  for byte in bytes:
+    bin_string += format(byte[0], '08b')
+  return bin_string
+
+
+def decode(encoded, dictionary):
   decoded = ""
-  current = tree
+  current = ""
   for bit in encoded:
-    if bit == "0":
-      current = current.left
-    else:
-      current = current.right
-    if current.left is None and current.right is None:
-      decoded += current.char
-      current = tree
+    current += bit
+    if current in dictionary.values():
+      decoded += list(dictionary.keys())[list(dictionary.values()).index(current)]
+      current = ""
   return decoded
 
-def get_ascii_data(text):
-   data = ""
-   for char in text:
-        data += format(ord(char), '08b')
-   return data
+def decode_from_file(filename, divider):
+  file = open(filename, "rb")
+  huffman_bytes = []
+  bytes_arr = file.read()
+  for b in range(len(bytes_arr)):
+    if bytes_arr[b:b+len(divider)] == divider:
+      break
+    huffman_bytes.append(bytes_arr[b:b+1])
+  dictionary = pickle.loads(bytes_arr[b+len(divider):])
+  huffman_bin_str =  bytes_to_binary_string(huffman_bytes)
+  return decode(huffman_bin_str, dictionary)
 
-text = open("./to_code.txt", 'r').read()
-freq = get_freq_dict(text)
 
-tree = huffman_tree(freq)
+def encode_to_file(text, filename, divider):
+  freq = get_freq_dict(text)
+  tree = huffman_tree(freq)
+  codes = {}
+  huffman_codes(tree, codes)
+  encoded_data = encode(text, codes)
+  bytes_to_write = get_bytes(encoded_data)
+  encoded_file = open(filename, 'wb')
+  encoded_file.write(bytes_to_write)
+  encoded_file.write(divider)
+  dictionary = {char: codes[char] for char in codes}
+  dictionary_bytes = pickle.dumps(dictionary)
+  encoded_file.write(dictionary_bytes)
+  encoded_file.close()
 
-codes = {}
-huffman_codes(tree, codes)
-print('Codes:', codes)
+  return encoded_data
 
-encoded_data = encode(text, codes)
-open("./encoded.txt", 'w').write(encoded_data)
-bytes_to_write = get_bytes(encoded_data)
-open("./encoded.bin", 'wb').write(bytes_to_write)
-decoded_data = decode(encoded_data, tree)
-ascii_original_data = get_ascii_data(text)
+def get_file_size(filename):
+  return os.path.getsize(filename)
 
-print("Original data      :", text)
-print("Ascii original data:", get_ascii_data(text), " | ", len(ascii_original_data), " bits")
-print("Encoded data       :", encoded_data, " | ", len(encoded_data), " bits")
-print("Decoded data       :", decoded_data)
+# Ustawiamy divider
+divider = b'\xff\xfa'
+
+# Pobieramy tekst z pliku to_code.txt
+original_text = open("to_code.txt", "r").read()
+# Kodujemy tekst i zapisujemy do pliku encoded.bin
+encoded_data = encode_to_file(original_text, "encoded.bin", divider)
+# Dekodujemy tekst z pliku encoded.bin
+decoded_data = decode_from_file("encoded.bin", divider)
+
+# Wypisujemy oryginalny tekst, zakodowany tekst i odkodowany tekst
+print('-'*50)
+print('original file size:', get_file_size('to_code.txt'),'bytes')
+print('encoded file size with dictionary:', get_file_size('encoded.bin'),'bytes')
+
+print('-'*50)
+print('decoded text from file:', decoded_data)
