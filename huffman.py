@@ -80,6 +80,8 @@ def encode(data, codes):
   for char in data:
     encoded += codes[char]
   return encoded
+def get_bytes(data):
+  return bytes([int(data[i:i+8], 2) for i in range(0, len(data), 8)])
 
 def decode(encoded, tree):
   decoded = ""
@@ -100,7 +102,7 @@ def get_ascii_data(text):
         data += format(ord(char), '08b')
    return data
 
-text = "abracadabra"
+text = open("./to_code.txt", 'r').read()
 freq = get_freq_dict(text)
 
 tree = huffman_tree(freq)
@@ -110,6 +112,9 @@ huffman_codes(tree, codes)
 print('Codes:', codes)
 
 encoded_data = encode(text, codes)
+open("./encoded.txt", 'w').write(encoded_data)
+bytes_to_write = get_bytes(encoded_data)
+open("./encoded.bin", 'wb').write(bytes_to_write)
 decoded_data = decode(encoded_data, tree)
 ascii_original_data = get_ascii_data(text)
 
